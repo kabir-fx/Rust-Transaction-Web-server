@@ -29,7 +29,7 @@ use tracing_subscriber::EnvFilter;
 
 use axum::{
     Router, middleware as axum_middleware,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use tower_http::trace::TraceLayer;
 
@@ -76,6 +76,13 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/api/v1/transactions/{id}",
             get(handlers::transactions::get_transaction),
+        )
+        // Webhook routes
+        .route("/api/v1/webhooks", post(handlers::webhooks::create_webhook))
+        .route("/api/v1/webhooks", get(handlers::webhooks::list_webhooks))
+        .route(
+            "/api/v1/webhooks/{id}",
+            delete(handlers::webhooks::delete_webhook),
         )
         // Apply authentication middleware to all routes above
         // This runs BEFORE route handlers and:

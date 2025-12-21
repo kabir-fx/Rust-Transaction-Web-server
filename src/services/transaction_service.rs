@@ -47,6 +47,7 @@ pub async fn execute_credit(
     amount_cents: i64,
     description: Option<String>,
     idempotency_key: Option<String>,
+    api_key_id: Uuid,
 ) -> Result<Transaction, AppError> {
     // Validate amount
     if amount_cents <= 0 {
@@ -117,6 +118,21 @@ pub async fn execute_credit(
     // Commit all changes atomically
     tx.commit().await?;
 
+    // Trigger webhook notifications asynchronously (don't block response)
+    let transaction_clone = transaction.clone();
+    let pool_clone = pool.clone();
+    tokio::spawn(async move {
+        if let Err(e) = super::webhook_service::notify_transaction_webhooks(
+            &pool_clone,
+            &transaction_clone,
+            api_key_id,
+        )
+        .await
+        {
+            tracing::error!("Webhook notification failed: {:?}", e);
+        }
+    });
+
     Ok(transaction)
 }
 
@@ -127,6 +143,7 @@ pub async fn execute_debit(
     amount_cents: i64,
     description: Option<String>,
     idempotency_key: Option<String>,
+    api_key_id: Uuid,
 ) -> Result<Transaction, AppError> {
     // Validate amount
     if amount_cents <= 0 {
@@ -202,6 +219,21 @@ pub async fn execute_debit(
     // Commit atomically
     tx.commit().await?;
 
+    // Trigger webhook notifications asynchronously
+    let transaction_clone = transaction.clone();
+    let pool_clone = pool.clone();
+    tokio::spawn(async move {
+        if let Err(e) = super::webhook_service::notify_transaction_webhooks(
+            &pool_clone,
+            &transaction_clone,
+            api_key_id,
+        )
+        .await
+        {
+            tracing::error!("Webhook notification failed: {:?}", e);
+        }
+    });
+
     Ok(transaction)
 }
 
@@ -213,6 +245,7 @@ pub async fn execute_transfer(
     amount_cents: i64,
     description: Option<String>,
     idempotency_key: Option<String>,
+    api_key_id: Uuid,
 ) -> Result<Transaction, AppError> {
     // Validate amount
     if amount_cents <= 0 {
@@ -313,6 +346,21 @@ pub async fn execute_transfer(
     // Commit ALL changes atomically
     // If this fails, everything rolls back
     tx.commit().await?;
+
+    // Trigger webhook notifications asynchronously
+    let transaction_clone = transaction.clone();
+    let pool_clone = pool.clone();
+    tokio::spawn(async move {
+        if let Err(e) = super::webhook_service::notify_transaction_webhooks(
+            &pool_clone,
+            &transaction_clone,
+            api_key_id,
+        )
+        .await
+        {
+            tracing::error!("Webhook notification failed: {:?}", e);
+        }
+    });
 
     Ok(transaction)
 }

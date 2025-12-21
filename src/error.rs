@@ -53,8 +53,20 @@ pub enum AppError {
     ///
     /// Returns HTTP 400 Bad Request.
     /// The String contains details about what was invalid.
-    #[error("Invalid request")]
+    #[error("Invalid request: {0}")]
     InvalidRequest(String),
+
+    /// Webhook URL is invalid or doesn't meet security requirements.
+    ///
+    /// Returns HTTP 400 Bad Request.
+    #[error("Invalid webhook URL: {0}")]
+    InvalidWebhookUrl(String),
+
+    /// Requested webhook endpoint does not exist or doesn't belong to authenticated business.
+    ///
+    /// Returns HTTP 404 Not Found.
+    #[error("Webhook not found")]
+    WebhookNotFound,
 }
 
 /// Convert AppError into an HTTP response.
@@ -100,6 +112,12 @@ impl IntoResponse for AppError {
             ),
             AppError::InvalidRequest(ref msg) => {
                 (StatusCode::BAD_REQUEST, "invalid_request", msg.clone())
+            }
+            AppError::InvalidWebhookUrl(ref msg) => {
+                (StatusCode::BAD_REQUEST, "invalid_webhook_url", msg.clone())
+            }
+            AppError::WebhookNotFound => {
+                (StatusCode::NOT_FOUND, "webhook_not_found", self.to_string())
             }
             AppError::Database(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,

@@ -65,6 +65,7 @@ pub async fn create_credit(
         request.amount_cents,
         request.description,
         request.idempotency_key,
+        auth.api_key_id,
     )
     .await?;
 
@@ -102,6 +103,7 @@ pub async fn create_debit(
         request.amount_cents,
         request.description,
         request.idempotency_key,
+        auth.api_key_id,
     )
     .await?;
     Ok(Json(transaction.into()))
@@ -126,7 +128,6 @@ pub async fn create_transfer(
 ) -> Result<Json<TransactionResponse>, AppError> {
     // Verify both accounts belong to authenticated business
     // We fetch IDs to ensure they exist and belong to the user
-    use sqlx::Row;
     let accounts = sqlx::query("SELECT id FROM accounts WHERE id = ANY($1) AND api_key_id = $2")
         .bind(&[request.from_account_id, request.to_account_id])
         .bind(auth.api_key_id)
@@ -145,6 +146,7 @@ pub async fn create_transfer(
         request.amount_cents,
         request.description,
         request.idempotency_key,
+        auth.api_key_id,
     )
     .await?;
 

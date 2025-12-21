@@ -2,9 +2,16 @@
 //!
 //! Each handler is an async function that:
 //! 1. Receives HTTP request data (JSON body, URL params, etc.)
-//! 2. Performs business logic (database queries, validation)
-//! 3. Returns HTTP response (JSON, status code)
-/// Account management endpoints
+/// HTTP handlers for various API endpoints
+///
+/// Handlers receive HTTP requests, validate input, call service layer,
+/// and return HTTP responses.
+
+/// Account management handlers
 pub mod accounts;
 
+/// Transaction handlers for credit, debit, and transfer operations
 pub mod transactions;
+
+/// Webhook endpoint management handlers
+pub mod webhooks;
