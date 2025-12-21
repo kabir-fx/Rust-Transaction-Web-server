@@ -52,8 +52,9 @@ async fn main() -> anyhow::Result<()> {
     db::run_migrations(&pool).await?;
     tracing::info!("Database migrations complete");
 
-    let app = Router::new()
-        // Account management routes (all protected by auth middleware)
+    // Create authenticated routes (API endpoints)
+    let authenticated_routes = Router::new()
+        // Account management routes
         .route("/api/v1/accounts", post(handlers::accounts::create_account))
         .route("/api/v1/accounts", get(handlers::accounts::list_accounts))
         .route(
@@ -84,17 +85,19 @@ async fn main() -> anyhow::Result<()> {
             "/api/v1/webhooks/{id}",
             delete(handlers::webhooks::delete_webhook),
         )
-        // Apply authentication middleware to all routes above
-        // This runs BEFORE route handlers and:
-        // 1. Validates API key from Authorization header
-        // 2. Injects AuthContext into request
-        // 3. Returns 401 if authentication fails
+        // Apply authentication middleware to all routes in this group
         .route_layer(axum_middleware::from_fn_with_state(
             pool.clone(),
             middleware::auth::auth_middleware,
-        ))
+        ));
+
+    // Combine authenticated routes with public routes
+    let app = Router::new()
+        // Public routes (no authentication required)
+        .route("/health", get(handlers::health::health_check))
+        // Merge authenticated routes
+        .merge(authenticated_routes)
         // Add distributed tracing middleware for observability
-        // Logs request/response details for debugging
         .layer(TraceLayer::new_for_http())
         // Share database pool with all handlers via State extraction
         .with_state(pool);

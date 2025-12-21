@@ -10,6 +10,9 @@
 /// Account management handlers
 pub mod accounts;
 
+/// Health check handler for monitoring
+pub mod health;
+
 /// Transaction handlers for credit, debit, and transfer operations
 pub mod transactions;
 
