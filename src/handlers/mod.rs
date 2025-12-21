@@ -6,3 +6,5 @@
 //! 3. Returns HTTP response (JSON, status code)
 /// Account management endpoints
 pub mod accounts;
+
+pub mod transactions;

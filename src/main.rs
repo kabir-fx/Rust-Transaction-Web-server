@@ -23,6 +23,7 @@ mod error;
 mod handlers;
 mod middleware;
 mod models;
+mod services;
 
 use tracing_subscriber::EnvFilter;
 
@@ -58,6 +59,23 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/api/v1/accounts/{id}",
             get(handlers::accounts::get_account),
+        )
+        // Transaction routes
+        .route(
+            "/api/v1/transactions/credit",
+            post(handlers::transactions::create_credit),
+        )
+        .route(
+            "/api/v1/transactions/debit",
+            post(handlers::transactions::create_debit),
+        )
+        .route(
+            "/api/v1/transactions/transfer",
+            post(handlers::transactions::create_transfer),
+        )
+        .route(
+            "/api/v1/transactions/{id}",
+            get(handlers::transactions::get_transaction),
         )
         // Apply authentication middleware to all routes above
         // This runs BEFORE route handlers and:

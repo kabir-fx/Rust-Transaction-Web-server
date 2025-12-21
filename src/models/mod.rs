@@ -6,3 +6,5 @@
 pub mod account;
 /// API key authentication model
 pub mod api_key;
+
+pub mod transaction;
