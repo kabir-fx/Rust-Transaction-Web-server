@@ -5,17 +5,17 @@
 //! - GET /api/v1/accounts/:id - Get account by ID
 //! - GET /api/v1/accounts - List all accounts for authenticated business
 
-use axum::{
-    extract::{Path, State},
-    Extension, Json,
-};
-use uuid::Uuid;
 use crate::{
     db::DbPool,
     error::AppError,
     middleware::auth::AuthContext,
     models::account::{Account, AccountResponse, CreateAccountRequest},
 };
+use axum::{
+    Extension, Json,
+    extract::{Path, State},
+};
+use uuid::Uuid;
 
 /// Create a new account.
 ///
@@ -205,10 +205,7 @@ pub async fn list_accounts(
     .await?;
 
     // Convert each Account to AccountResponse
-    let responses: Vec<AccountResponse> = accounts
-        .into_iter()
-        .map(Into::into)
-        .collect();
+    let responses: Vec<AccountResponse> = accounts.into_iter().map(Into::into).collect();
 
     Ok(Json(responses))
 }

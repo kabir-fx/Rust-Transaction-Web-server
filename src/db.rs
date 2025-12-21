@@ -60,7 +60,5 @@ pub async fn create_pool(database_url: &str) -> Result<DbPool, sqlx::Error> {
 /// - Database errors during migration execution
 pub async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::migrate::MigrateError> {
     // The macro reads migrations at compile time from ./migrations directory
-    sqlx::migrate!("./migrations")
-        .run(pool)
-        .await
+    sqlx::migrate!("./migrations").run(pool).await
 }

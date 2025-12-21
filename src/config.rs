@@ -5,7 +5,6 @@
 
 use serde::Deserialize;
 
-
 /// Application configuration loaded from environment variables.
 ///
 /// # Environment Variables
@@ -17,7 +16,7 @@ pub struct Config {
     pub database_url: String,
 
     #[serde(default = "default_port")]
-    pub server_port: u16
+    pub server_port: u16,
 }
 
 /// Default port if SERVER_PORT environment variable is not set.
@@ -39,7 +38,7 @@ impl Config {
     pub fn from_env() -> Result<Self, envy::Error> {
         // Try to load .env file if it exists (does nothing if not found)
         dotenvy::dotenv().ok();
-        
+
         // Parse environment variables into Config struct
         // Field names are automatically converted: database_url -> DATABASE_URL
         envy::from_env::<Config>()

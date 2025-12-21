@@ -4,9 +4,9 @@
 //! into HTTP responses with appropriate status codes and JSON bodies.
 
 use axum::{
+    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde_json::json;
 
@@ -55,7 +55,7 @@ pub enum AppError {
     /// The String contains details about what was invalid.
     #[error("Invalid request")]
     InvalidRequest(String),
-}   
+}
 
 /// Convert AppError into an HTTP response.
 ///
@@ -90,28 +90,24 @@ impl IntoResponse for AppError {
                 "invalid_api_key",
                 self.to_string(),
             ),
-            AppError::AccountNotFound => (
-                StatusCode::NOT_FOUND,
-                "account_not_found",
-                self.to_string(),
-            ),
+            AppError::AccountNotFound => {
+                (StatusCode::NOT_FOUND, "account_not_found", self.to_string())
+            }
             AppError::InsufficientBalance => (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "insufficient_balance",
                 self.to_string(),
             ),
-            AppError::InvalidRequest(ref msg) => (
-                StatusCode::BAD_REQUEST,
-                "invalid_request",
-                msg.clone(),
-            ),
+            AppError::InvalidRequest(ref msg) => {
+                (StatusCode::BAD_REQUEST, "invalid_request", msg.clone())
+            }
             AppError::Database(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal_error",
                 "An internal error occurred".to_string(),
             ),
         };
-        
+
         // Build JSON response body
         let body = Json(json!({
             "error": {
@@ -119,7 +115,7 @@ impl IntoResponse for AppError {
                 "message": message
             }
         }));
-        
+
         // Return the response with status code and JSON body
         (status, body).into_response()
     }

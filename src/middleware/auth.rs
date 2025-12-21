@@ -6,6 +6,7 @@
 //! 3. Inject authentication context into the request
 //! 4. Reject unauthorized requests with HTTP 401
 
+use crate::{db::DbPool, error::AppError, models::api_key::ApiKey};
 use axum::{
     extract::{Request, State},
     middleware::Next,
@@ -13,7 +14,6 @@ use axum::{
 };
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
-use crate::{db::DbPool, error::AppError, models::api_key::ApiKey};
 
 /// Authentication context attached to authenticated requests.
 ///
@@ -25,11 +25,10 @@ pub struct AuthContext {
     ///
     /// Used to filter database queries (e.g., only show accounts for this business)
     pub api_key_id: Uuid,
-    
+
     /// Name of the business making the request
     pub business_name: String,
 }
-
 
 /// API key authentication middleware function.
 ///
