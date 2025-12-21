@@ -33,8 +33,8 @@ A secure, reliable REST API for managing financial accounts and transactions, bu
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd transaction_rust
+git clone https://github.com/kabir-fx/Rust-Transaction-Web-server.git
+cd Rust-Transaction-Web-server
 
 # Start database and API server
 docker compose up --build
