@@ -4,31 +4,10 @@
 //! - `Transaction`: Database entity representing a transaction
 //! - Request types for credit, debit, and transfer operations
 //! - `TransactionResponse`: Response body returned to clients
-//! - `TransactionType`: Enum for transaction types
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
-/// Type of transaction operation.
-///
-/// # Variants
-///
-/// - `Credit`: Money added to account (e.g., deposit, refund)
-/// - `Debit`: Money removed from account (e.g., withdrawal, charge)
-/// - `Transfer`: Money moved between accounts
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "text")]
-pub enum TransactionType {
-    #[serde(rename = "credit")]
-    Credit,
-
-    #[serde(rename = "debit")]
-    Debit,
-
-    #[serde(rename = "transfer")]
-    Transfer,
-}
 
 /// Represents a transaction record from the database.
 ///
@@ -149,7 +128,6 @@ pub struct DebitRequest {
 }
 
 /// Request to transfer money between accounts.
-
 ///
 /// # JSON Example
 ///

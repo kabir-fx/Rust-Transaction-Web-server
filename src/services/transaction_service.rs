@@ -14,6 +14,55 @@
 use crate::{db::DbPool, error::AppError, models::transaction::Transaction};
 use uuid::Uuid;
 
+/// Check if a transaction with the given idempotency key already exists.
+///
+/// # Returns
+///
+/// - `Ok(Some(transaction))` if a matching transaction exists
+/// - `Ok(None)` if no matching transaction or no key provided
+async fn check_idempotency(
+    pool: &DbPool,
+    idempotency_key: &Option<String>,
+) -> Result<Option<Transaction>, AppError> {
+    if let Some(key) = idempotency_key {
+        let existing = sqlx::query_as::<_, Transaction>(
+            "SELECT * FROM transactions WHERE idempotency_key = $1",
+        )
+        .bind(key)
+        .fetch_optional(pool)
+        .await?;
+        return Ok(existing);
+    }
+    Ok(None)
+}
+
+/// Validate that the amount is positive.
+fn validate_positive_amount(amount_cents: i64) -> Result<(), AppError> {
+    if amount_cents <= 0 {
+        return Err(AppError::InvalidRequest(
+            "Amount must be positive".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Spawn async webhook notification (fire and forget).
+fn spawn_webhook_notification(pool: &DbPool, transaction: &Transaction, api_key_id: Uuid) {
+    let transaction_clone = transaction.clone();
+    let pool_clone = pool.clone();
+    tokio::spawn(async move {
+        if let Err(e) = super::webhook_service::notify_transaction_webhooks(
+            &pool_clone,
+            &transaction_clone,
+            api_key_id,
+        )
+        .await
+        {
+            tracing::error!("Webhook notification failed: {:?}", e);
+        }
+    });
+}
+
 /// Execute a credit transaction (add money to account).
 ///
 /// # Process
@@ -50,23 +99,11 @@ pub async fn execute_credit(
     api_key_id: Uuid,
 ) -> Result<Transaction, AppError> {
     // Validate amount
-    if amount_cents <= 0 {
-        return Err(AppError::InvalidRequest(
-            "Amount must be positive".to_string(),
-        ));
-    }
+    validate_positive_amount(amount_cents)?;
 
     // Check for duplicate idempotency key
-    if let Some(ref key) = idempotency_key {
-        if let Some(existing) = sqlx::query_as::<_, Transaction>(
-            "SELECT * FROM transactions WHERE idempotency_key = $1",
-        )
-        .bind(key)
-        .fetch_optional(pool)
-        .await?
-        {
-            return Ok(existing);
-        }
+    if let Some(existing) = check_idempotency(pool, &idempotency_key).await? {
+        return Ok(existing);
     }
 
     // Start db transaction
@@ -119,19 +156,7 @@ pub async fn execute_credit(
     tx.commit().await?;
 
     // Trigger webhook notifications asynchronously (don't block response)
-    let transaction_clone = transaction.clone();
-    let pool_clone = pool.clone();
-    tokio::spawn(async move {
-        if let Err(e) = super::webhook_service::notify_transaction_webhooks(
-            &pool_clone,
-            &transaction_clone,
-            api_key_id,
-        )
-        .await
-        {
-            tracing::error!("Webhook notification failed: {:?}", e);
-        }
-    });
+    spawn_webhook_notification(pool, &transaction, api_key_id);
 
     Ok(transaction)
 }
@@ -146,27 +171,16 @@ pub async fn execute_debit(
     api_key_id: Uuid,
 ) -> Result<Transaction, AppError> {
     // Validate amount
-    if amount_cents <= 0 {
-        return Err(AppError::InvalidRequest(
-            "Amount must be positive".to_string(),
-        ));
-    }
+    validate_positive_amount(amount_cents)?;
 
     // Check for duplicate idempotency key
-    if let Some(ref key) = idempotency_key {
-        if let Some(existing) = sqlx::query_as::<_, Transaction>(
-            "SELECT * FROM transactions WHERE idempotency_key = $1",
-        )
-        .bind(key)
-        .fetch_optional(pool)
-        .await?
-        {
-            return Ok(existing);
-        }
+    if let Some(existing) = check_idempotency(pool, &idempotency_key).await? {
+        return Ok(existing);
     }
 
     // Start database transaction
     let mut tx = pool.begin().await?;
+
     // Lock account and check balance
     let balance_cents: i64 =
         sqlx::query_scalar("SELECT balance_cents FROM accounts WHERE id = $1 FOR UPDATE")
@@ -216,23 +230,12 @@ pub async fn execute_debit(
     .bind(idempotency_key)
     .fetch_one(&mut *tx)
     .await?;
+
     // Commit atomically
     tx.commit().await?;
 
     // Trigger webhook notifications asynchronously
-    let transaction_clone = transaction.clone();
-    let pool_clone = pool.clone();
-    tokio::spawn(async move {
-        if let Err(e) = super::webhook_service::notify_transaction_webhooks(
-            &pool_clone,
-            &transaction_clone,
-            api_key_id,
-        )
-        .await
-        {
-            tracing::error!("Webhook notification failed: {:?}", e);
-        }
-    });
+    spawn_webhook_notification(pool, &transaction, api_key_id);
 
     Ok(transaction)
 }
@@ -248,11 +251,7 @@ pub async fn execute_transfer(
     api_key_id: Uuid,
 ) -> Result<Transaction, AppError> {
     // Validate amount
-    if amount_cents <= 0 {
-        return Err(AppError::InvalidRequest(
-            "Amount must be positive".to_string(),
-        ));
-    }
+    validate_positive_amount(amount_cents)?;
 
     // Prevent transferring to same account
     if from_account_id == to_account_id {
@@ -262,18 +261,11 @@ pub async fn execute_transfer(
     }
 
     // Check for duplicate idempotency key
-    if let Some(ref key) = idempotency_key {
-        if let Some(existing) = sqlx::query_as::<_, Transaction>(
-            "SELECT * FROM transactions WHERE idempotency_key = $1",
-        )
-        .bind(key)
-        .fetch_optional(pool)
-        .await?
-        {
-            return Ok(existing);
-        }
+    if let Some(existing) = check_idempotency(pool, &idempotency_key).await? {
+        return Ok(existing);
     }
-    // Start database transaction - THIS IS THE MAGIC
+
+    // Start database transaction
     let mut tx = pool.begin().await?;
 
     // Lock source account and check balance
@@ -344,23 +336,10 @@ pub async fn execute_transfer(
     .await?;
 
     // Commit ALL changes atomically
-    // If this fails, everything rolls back
     tx.commit().await?;
 
     // Trigger webhook notifications asynchronously
-    let transaction_clone = transaction.clone();
-    let pool_clone = pool.clone();
-    tokio::spawn(async move {
-        if let Err(e) = super::webhook_service::notify_transaction_webhooks(
-            &pool_clone,
-            &transaction_clone,
-            api_key_id,
-        )
-        .await
-        {
-            tracing::error!("Webhook notification failed: {:?}", e);
-        }
-    });
+    spawn_webhook_notification(pool, &transaction, api_key_id);
 
     Ok(transaction)
 }

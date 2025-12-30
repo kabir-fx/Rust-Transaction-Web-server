@@ -110,25 +110,41 @@ impl WebhookEndpointResponse {
     }
 }
 
-/// Webhook event delivery record.
+/// Data for creating a new webhook event.
 ///
 /// # Database Table
 ///
-/// Maps to the `webhook_events` table.
-///
-/// # Purpose
-///
-/// Tracks every webhook delivery attempt, including the payload sent,
-/// HTTP response status, and any error messages.
-#[derive(Debug, Clone, FromRow)]
-pub struct WebhookEvent {
+/// Maps to the `webhook_events` table. Tracks every webhook delivery attempt,
+/// including the payload sent, HTTP response status, and any error messages.
+#[derive(Debug)]
+pub struct NewWebhookEvent {
     pub id: Uuid,
     pub webhook_endpoint_id: Uuid,
     pub transaction_id: Uuid,
     pub payload: serde_json::Value,
-    pub sent_at: DateTime<Utc>,
     pub response_status: Option<i32>,
     pub response_body: Option<String>,
+}
+
+impl NewWebhookEvent {
+    /// Create a new webhook event record.
+    pub fn new(
+        id: Uuid,
+        webhook_endpoint_id: Uuid,
+        transaction_id: Uuid,
+        payload: serde_json::Value,
+        response_status: Option<i32>,
+        response_body: Option<String>,
+    ) -> Self {
+        Self {
+            id,
+            webhook_endpoint_id,
+            transaction_id,
+            payload,
+            response_status,
+            response_body,
+        }
+    }
 }
 
 /// Webhook payload sent to the registered endpoint.

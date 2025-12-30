@@ -19,6 +19,25 @@ use axum::{
 };
 use uuid::Uuid;
 
+/// Verify that an account belongs to the authenticated business.
+///
+/// # Returns
+///
+/// - `Ok(account_id)` if the account exists and belongs to the business
+/// - `Err(AccountNotFound)` if the account doesn't exist or belongs to another business
+async fn verify_account_ownership(
+    pool: &DbPool,
+    account_id: Uuid,
+    api_key_id: Uuid,
+) -> Result<Uuid, AppError> {
+    sqlx::query_scalar("SELECT id FROM accounts WHERE id = $1 AND api_key_id = $2")
+        .bind(account_id)
+        .bind(api_key_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or(AppError::AccountNotFound)
+}
+
 /// Credit an account (add money).
 ///
 /// # Request Body
@@ -50,13 +69,7 @@ pub async fn create_credit(
     Json(request): Json<CreditRequest>,
 ) -> Result<Json<TransactionResponse>, AppError> {
     // Verify account belongs to authenticated business
-    let account_id: Uuid =
-        sqlx::query_scalar("SELECT id FROM accounts WHERE id = $1 AND api_key_id = $2")
-            .bind(request.account_id)
-            .bind(auth.api_key_id)
-            .fetch_optional(&pool)
-            .await?
-            .ok_or(AppError::AccountNotFound)?;
+    let account_id = verify_account_ownership(&pool, request.account_id, auth.api_key_id).await?;
 
     // Execute credit transaction
     let transaction = transaction_service::execute_credit(
@@ -88,13 +101,7 @@ pub async fn create_debit(
     Json(request): Json<DebitRequest>,
 ) -> Result<Json<TransactionResponse>, AppError> {
     // Verify account ownership
-    let account_id: Uuid =
-        sqlx::query_scalar("SELECT id FROM accounts WHERE id = $1 AND api_key_id = $2")
-            .bind(request.account_id)
-            .bind(auth.api_key_id)
-            .fetch_optional(&pool)
-            .await?
-            .ok_or(AppError::AccountNotFound)?;
+    let account_id = verify_account_ownership(&pool, request.account_id, auth.api_key_id).await?;
 
     // Execute debit transaction
     let transaction = transaction_service::execute_debit(
@@ -106,6 +113,7 @@ pub async fn create_debit(
         auth.api_key_id,
     )
     .await?;
+
     Ok(Json(transaction.into()))
 }
 
@@ -129,7 +137,7 @@ pub async fn create_transfer(
     // Verify both accounts belong to authenticated business
     // We fetch IDs to ensure they exist and belong to the user
     let accounts = sqlx::query("SELECT id FROM accounts WHERE id = ANY($1) AND api_key_id = $2")
-        .bind(&[request.from_account_id, request.to_account_id])
+        .bind([request.from_account_id, request.to_account_id])
         .bind(auth.api_key_id)
         .fetch_all(&pool)
         .await?;

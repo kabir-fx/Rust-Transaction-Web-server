@@ -7,7 +7,8 @@ use crate::db::DbPool;
 use crate::error::AppError;
 use crate::models::transaction::Transaction;
 use crate::models::webhook::{
-    WebhookEndpoint, WebhookEndpointRequest, WebhookEndpointResponse, WebhookPayload,
+    NewWebhookEvent, WebhookEndpoint, WebhookEndpointRequest, WebhookEndpointResponse,
+    WebhookPayload,
 };
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -208,6 +209,19 @@ async fn send_webhook(
         }
     };
 
+    // Create webhook event record
+    let payload_value = serde_json::from_str::<serde_json::Value>(&payload_json)
+        .map_err(|e| AppError::InvalidRequest(format!("Failed to parse payload: {}", e)))?;
+
+    let event = NewWebhookEvent::new(
+        event_id,
+        endpoint.id,
+        transaction.id,
+        payload_value,
+        status,
+        body,
+    );
+
     // Store event record
     sqlx::query(
         r#"
@@ -222,12 +236,12 @@ async fn send_webhook(
         VALUES ($1, $2, $3, $4, $5, $6)
         "#,
     )
-    .bind(event_id)
-    .bind(endpoint.id)
-    .bind(transaction.id)
-    .bind(serde_json::from_str::<serde_json::Value>(&payload_json).unwrap())
-    .bind(status)
-    .bind(body)
+    .bind(event.id)
+    .bind(event.webhook_endpoint_id)
+    .bind(event.transaction_id)
+    .bind(event.payload)
+    .bind(event.response_status)
+    .bind(event.response_body)
     .execute(pool)
     .await?;
 

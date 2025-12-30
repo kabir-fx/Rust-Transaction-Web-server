@@ -6,7 +6,7 @@
 //! 3. Inject authentication context into the request
 //! 4. Reject unauthorized requests with HTTP 401
 
-use crate::{db::DbPool, error::AppError, models::api_key::ApiKey};
+use crate::{db::DbPool, error::AppError};
 use axum::{
     extract::{Request, State},
     middleware::Next,
@@ -25,9 +25,6 @@ pub struct AuthContext {
     ///
     /// Used to filter database queries (e.g., only show accounts for this business)
     pub api_key_id: Uuid,
-
-    /// Name of the business making the request
-    pub business_name: String,
 }
 
 /// API key authentication middleware function.
@@ -81,22 +78,16 @@ pub async fn auth_middleware(
 
     let key_hash = hex::encode(hasher.finalize());
 
-    // Step 4: Lookup hashed key in database
-    let api_key_record = sqlx::query_as::<_, ApiKey>(
-        "SELECT id, key_hash, business_name, created_at, is_active 
-         FROM api_keys 
-         WHERE key_hash = $1 AND is_active = true",
-    )
-    .bind(&key_hash)
-    .fetch_optional(&pool)
-    .await?
-    .ok_or(AppError::InvalidApiKey)?;
+    // Step 4: Lookup hashed key in database - only fetch the id we need
+    let api_key_id: Uuid =
+        sqlx::query_scalar("SELECT id FROM api_keys WHERE key_hash = $1 AND is_active = true")
+            .bind(&key_hash)
+            .fetch_optional(&pool)
+            .await?
+            .ok_or(AppError::InvalidApiKey)?;
 
     // Step 5: Create authentication context
-    let auth_context = AuthContext {
-        api_key_id: api_key_record.id,
-        business_name: api_key_record.business_name,
-    };
+    let auth_context = AuthContext { api_key_id };
 
     // Step 6: Inject context into request extensions
     // Route handlers can now extract this using Extension<AuthContext>
