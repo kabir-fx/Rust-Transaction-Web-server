@@ -67,7 +67,8 @@ pub struct Account {
 /// ```json
 /// {
 ///   "account_name": "My Savings Account",
-///   "currency": "USD"
+///   "currency": "USD",
+///   "initial_balance_cents": 10000
 /// }
 /// ```
 ///
@@ -75,6 +76,7 @@ pub struct Account {
 ///
 /// - `account_name`: Required, any non-empty string
 /// - `currency`: Optional, defaults to "USD"
+/// - `initial_balance_cents`: Optional, defaults to 0
 #[derive(Debug, Deserialize)]
 pub struct CreateAccountRequest {
     /// Name for the new account
@@ -83,6 +85,10 @@ pub struct CreateAccountRequest {
     /// Currency code (defaults to "USD" if not provided)
     #[serde(default = "default_currency")]
     pub currency: String,
+
+    /// Initial balance in cents (defaults to 0 if not provided)
+    #[serde(default)]
+    pub initial_balance_cents: i64,
 }
 
 /// Default currency value when not specified in request.

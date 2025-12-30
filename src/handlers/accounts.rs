@@ -74,7 +74,7 @@ pub async fn create_account(
     let account = sqlx::query_as::<_, Account>(
         r#"
         INSERT INTO accounts (api_key_id, account_name, currency, balance_cents)
-        VALUES ($1, $2, $3, 0)
+        VALUES ($1, $2, $3, $4)
         RETURNING id, api_key_id, account_name, balance_cents, currency, created_at, updated_at
         "#,
     )
@@ -82,6 +82,7 @@ pub async fn create_account(
     .bind(auth.api_key_id)
     .bind(request.account_name)
     .bind(&request.currency)
+    .bind(request.initial_balance_cents)
     .fetch_one(&pool)
     .await?;
 
