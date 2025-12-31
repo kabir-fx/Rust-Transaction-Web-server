@@ -50,7 +50,7 @@ pub async fn create_pool(database_url: &str) -> Result<DbPool, sqlx::Error> {
 /// # Migration Files
 ///
 /// Migration files must be in `migrations/` directory with format:
-/// - `<timestamp>_<name>.sql` (e.g., `20250101000001_create_users.sql`)
+/// - `<id>_<name>.sql` (e.g., `1_create_users.sql`)
 ///
 /// # Errors
 ///
