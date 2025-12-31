@@ -16,7 +16,6 @@ use uuid::Uuid;
 /// Maps to the `accounts` table. Each account:
 /// - Belongs to one business (via `api_key_id`)
 /// - Has a balance stored in cents (to avoid floating-point errors)
-/// - Supports different currencies (though USD is default)
 ///
 /// # Balance Storage
 ///
